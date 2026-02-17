@@ -1,0 +1,72 @@
+import requests
+import json
+
+# --- Configuration ---
+subreddits = [
+    "recruiting",
+    "recruitment",
+    "humanresources",
+    "recruitinghell",        # for balance
+    "jobs",
+    "careeradvice",
+    "cscareerquestions"
+]
+
+keywords = [
+    "ai",
+    "artificial intelligence",
+    "resume screening",
+    "interview",
+    "automation",
+    "hiring",
+    "recruitment",
+    "recuritment"  # common typo
+]
+
+min_comments_per_post = 50  # only consider posts with enough comments
+
+# Store totals
+total_comments = 0
+total_words = 0
+
+# --- Helper ---
+def get_post_json(subreddit, keyword):
+    """
+    Returns top 25 posts JSON from a subreddit search
+    """
+    url = f"https://www.reddit.com/r/{subreddit}/search.json?q={keyword}&restrict_sr=1&sort=relevance&t=all"
+    headers = {"User-Agent": "RedditStep4Crawler/0.1"}
+    try:
+        r = requests.get(url, headers=headers)
+        if r.status_code == 200:
+            return r.json()
+        else:
+            return None
+    except Exception as e:
+        print(f"Error fetching {url}: {e}")
+        return None
+
+# --- Main ---
+for subreddit in subreddits:
+    for keyword in keywords:
+        data = get_post_json(subreddit, keyword)
+        if not data:
+            continue
+        posts = data.get("data", {}).get("children", [])
+        for post in posts:
+            post_data = post["data"]
+            num_comments = post_data.get("num_comments", 0)
+            if num_comments < min_comments_per_post:
+                continue  # skip posts with too few comments
+            # Estimate word count: avg 50 words/comment as preliminary guess
+            total_comments += num_comments
+            total_words += num_comments * 50  # rough estimate
+
+print("Estimated Corpus Size:")
+print(f"Comments: {total_comments}")
+print(f"Words (approx): {total_words}")
+
+if total_comments >= 10000 and total_words >= 100000:
+    print("Good: You can likely reach the assignment minimum.")
+else:
+    print("Warning: You may need more posts, subreddits, or keywords.")
