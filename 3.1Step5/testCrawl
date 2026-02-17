@@ -1,0 +1,92 @@
+import requests
+import json
+import time
+import os
+from datetime import datetime
+
+# --- Configuration ---
+subreddit = "recruiting"          # test with 1 subreddit
+keyword = "AI"         # test with 1 keyword
+MIN_COMMENTS = 50
+OUTPUT_FOLDER = "jsonl_test"
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+
+# --- Helpers ---
+def fetch_posts(subreddit, keyword, limit=5):
+    """Fetch top posts for a subreddit+keyword"""
+    url = f"https://www.reddit.com/r/{subreddit}/search.json"
+    headers = {"User-Agent": "Mozilla/5.0 (RedditCrawler/0.1 by YourUsername)"}
+    params = {"q": keyword, "sort": "comments", "limit": limit, "restrict_sr": 1}
+    try:
+        r = requests.get(url, headers=headers, params=params, timeout=10)
+        if r.status_code != 200:
+            print(f"Failed to fetch posts: {r.status_code}")
+            return []
+        return r.json().get("data", {}).get("children", [])
+    except Exception as e:
+        print(f"Error fetching posts: {e}")
+        return []
+
+def fetch_comments(post_url):
+    """Fetch all comments for a post"""
+    headers = {"User-Agent": "Mozilla/5.0 (RedditCrawler/0.1 by YourUsername)"}
+    try:
+        r = requests.get(f"{post_url}.json", headers=headers, timeout=10)
+        if r.status_code != 200:
+            print(f"Failed to fetch comments: {r.status_code}")
+            return None
+        return r.json()
+    except Exception as e:
+        print(f"Error fetching comments: {e}")
+        return None
+
+def json_to_jsonl(input_json, output_file, post_url):
+    """Convert Reddit JSON to JSONL"""
+    if not input_json or len(input_json) < 2:
+        return
+    post_data = input_json[0]["data"]["children"][0]["data"]
+    subreddit = post_data["subreddit"]
+    post_title = post_data["title"]
+
+    with open(output_file, "w", encoding="utf-8") as out_f:
+        def process_comment(comment):
+            if comment["kind"] != "t1":
+                return
+            c = comment["data"]
+            if c.get("body") in ["[deleted]", "[removed]"]:
+                return
+            record = {
+                "id": c["id"],
+                "text": c.get("body", ""),
+                "timestamp": datetime.utcfromtimestamp(c["created_utc"]).isoformat() + "Z",
+                "source": "reddit",
+                "metadata": {
+                    "subreddit": subreddit,
+                    "post_title": post_title,
+                    "url": post_url
+                }
+            }
+            out_f.write(json.dumps(record, ensure_ascii=False) + "\n")
+            # Recursive replies
+            if c.get("replies") and isinstance(c["replies"], dict):
+                for reply in c["replies"]["data"]["children"]:
+                    process_comment(reply)
+
+        for comment in input_json[1]["data"]["children"]:
+            process_comment(comment)
+
+# --- Main ---
+posts = fetch_posts(subreddit, keyword, limit=3)  # test with 3 posts only
+for post in posts:
+    post_data = post["data"]
+    if post_data.get("num_comments", 0) < MIN_COMMENTS:
+        continue
+    post_url = f"https://www.reddit.com{post_data['permalink']}"
+    print(f"Fetching comments for: {post_url}")
+    data = fetch_comments(post_url)
+    if not data:
+        continue
+    output_file = os.path.join(OUTPUT_FOLDER, f"{post_data['id']}.jsonl")
+    json_to_jsonl(data, output_file, post_url)
+    print(f"Saved JSONL: {output_file}")
+    time.sleep(1.5)  # throttle requests

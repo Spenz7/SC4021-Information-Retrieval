@@ -1,6 +1,8 @@
 import json, os
 from datetime import datetime
 
+#REV u manually download json file frm reddit posts then this prog will convert them to jsonl
+
 def reddit_json_to_jsonl(input_json_file, output_jsonl_file, post_url):
     """
     Convert Reddit JSON (from /comments/.json) to JSONL where each comment is 1 record.
