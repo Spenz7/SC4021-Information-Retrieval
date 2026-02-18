@@ -11,7 +11,7 @@ subreddits = [
     "recruitment",
     "humanresources",
     "recruitinghell",   # adds critical/negative opinions
-    "jobs"              # broader/general, exclude if u can hit target wo it
+    #"jobs"              # broader/general, exclude if u can hit target wo it
 ]
 
 # Core keywords – most relevant to your topic
@@ -19,16 +19,12 @@ keywords = [
     "AI",
     "AI hiring",
     "AI recruiting",
-    "resume screening",
+    "AI screening",
     "AI interview",     # expands coverage
-    "automation",
-    "hiring",
-    "recruitment",
-    "recruiting"
 ]
 
 
-MIN_COMMENTS = 30
+MIN_COMMENTS = 25
 OUTPUT_FOLDER = "jsonl_crawl_full"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
@@ -38,11 +34,11 @@ REQUEST_DELAY_COMMENTS = 3.0
 BACKOFF_DELAY = 90  # seconds
 
 # Targets
-TARGET_COMMENTS = 15000
+TARGET_COMMENTS = 20000
 TARGET_WORDS = 150000
 
 # --- Helpers ---
-def fetch_posts(subreddit, keyword, limit=25):
+def fetch_posts(subreddit, keyword, limit=100):
     """Fetch top posts for a subreddit+keyword"""
     url = f"https://www.reddit.com/r/{subreddit}/search.json"
     headers = {"User-Agent": "Mozilla/5.0 (RedditCrawler/0.1 by YourUsername)"}
@@ -166,7 +162,7 @@ for sub in subreddits:
             break
 
         print(f"Fetching posts for r/{sub} with keyword '{kw}'...")
-        posts = fetch_posts(sub, kw, limit=25)
+        posts = fetch_posts(sub, kw, limit=100)
         time.sleep(REQUEST_DELAY_SEARCH)
 
         for post in posts:
